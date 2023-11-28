@@ -198,7 +198,8 @@ let ageColumn = new Column<VolumeInfoUI>('Age', {
 let sizeColumn = new Column<VolumeInfoUI>('Size', {
   align: 'right',
   renderer: VolumeColumnSize,
-  comparator: (a, b) => b.size - a.size,
+  comparator: (a, b) => a.size - b.size,
+  initialOrder: 'descending',
 });
 
 const columns: Column<VolumeInfoUI>[] = [
@@ -250,7 +251,8 @@ const row = new Row<VolumeInfoUI>({
       bind:selectedItemsNumber="{selectedItemsNumber}"
       data="{volumes}"
       columns="{columns}"
-      row="{row}">
+      row="{row}"
+      defaultSortColumn="Name">
     </Table>
 
     {#if providerConnections.length === 0}

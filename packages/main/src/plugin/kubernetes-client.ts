@@ -232,10 +232,20 @@ export class KubernetesClient {
           '/api/v1/namespaces/' + ns + '/pods',
           {},
           () => this.apiSender.send('pod-event'),
-          err => console.warn('Kube watch ended', String(err)),
+          err => console.warn('Kube pod watch ended', String(err)),
         )
         .then(req => (this.kubeWatcher = req))
-        .catch((err: unknown) => console.error('Kube event error', err));
+        .catch((err: unknown) => console.error('Kube pod event error', err));
+
+      watch
+        .watch(
+          '/apis/apps/v1/namespaces/' + ns + '/deployments',
+          {},
+          () => this.apiSender.send('deployment-event'),
+          err => console.warn('Kube deployment watch ended', String(err)),
+        )
+        .then(req => (this.kubeWatcher = req))
+        .catch((err: unknown) => console.error('Kube deployment event error', err));
     }
   }
 
@@ -323,6 +333,27 @@ export class KubernetesClient {
     // the config is saved back only if saving the file succeeds
     this.kubeConfig = newConfig;
     return this.getContexts();
+  }
+
+  // setContext takes a context name and sets it as the current context within the kubeconfig
+  async setContext(contextName: string): Promise<void> {
+    const newConfig = new KubeConfig();
+
+    // Load the configuration with all the standard contexts, clusters, users, etc.
+    // but change the currentContext to the provided contextName.
+    newConfig.loadFromOptions({
+      contexts: this.kubeConfig.contexts,
+      clusters: this.kubeConfig.clusters,
+      users: this.kubeConfig.users,
+      currentContext: contextName,
+    });
+
+    // Save the configuration to the kubeconfig file and set the current context to the context name.
+    await this.saveKubeConfig(newConfig);
+
+    // If saving the file succeeds then set the kubeConfig to the newConfig & set the current context name.
+    this.kubeConfig = newConfig;
+    this.currentContextName = contextName;
   }
 
   async saveKubeConfig(config: KubeConfig) {
@@ -568,6 +599,24 @@ export class KubernetesClient {
     return [];
   }
 
+  // List all services
+  async listServices(): Promise<V1Service[]> {
+    const ns = this.getCurrentNamespace();
+    // Only retrieve services if valid namespace && valid connection, otherwise we will return an empty array
+    const connected = await this.checkConnection();
+    if (ns && connected) {
+      // Get the services via the kubernetes api
+      try {
+        const k8sApi = this.kubeConfig.makeApiClient(CoreV1Api);
+        const services = await k8sApi.listNamespacedService(ns);
+        return services.body.items;
+      } catch (_) {
+        // do nothing
+      }
+    }
+    return [];
+  }
+
   async readPodLog(name: string, container: string, callback: (name: string, data: string) => void): Promise<void> {
     this.telemetry.track('kubernetesReadPodLog');
     const ns = this.currentNamespace;
@@ -652,6 +701,24 @@ export class KubernetesClient {
       throw this.wrapK8sClientError(error);
     } finally {
       this.telemetry.track('kubernetesDeleteRoute', telemetryOptions);
+    }
+  }
+
+  async deleteService(name: string): Promise<void> {
+    let telemetryOptions = {};
+    try {
+      const ns = this.getCurrentNamespace();
+      // Only delete service if valid namespace && valid connection
+      const connected = await this.checkConnection();
+      if (ns && connected) {
+        const k8sApi = this.kubeConfig.makeApiClient(CoreV1Api);
+        await k8sApi.deleteNamespacedService(name, ns);
+      }
+    } catch (error) {
+      telemetryOptions = { error: error };
+      throw this.wrapK8sClientError(error);
+    } finally {
+      this.telemetry.track('kubernetesDeleteService', telemetryOptions);
     }
   }
 

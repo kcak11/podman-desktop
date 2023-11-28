@@ -1426,6 +1426,9 @@ function initExposure(): void {
   contextBridge.exposeInMainWorld('kubernetesDeleteContext', async (contextName: string): Promise<Context[]> => {
     return ipcInvoke('kubernetes-client:deleteContext', contextName);
   });
+  contextBridge.exposeInMainWorld('kubernetesSetContext', async (contextName: string): Promise<void> => {
+    return ipcInvoke('kubernetes-client:setContext', contextName);
+  });
 
   contextBridge.exposeInMainWorld('kubernetesGetClusters', async (): Promise<Cluster[]> => {
     return ipcInvoke('kubernetes-client:getClusters');
@@ -1494,6 +1497,10 @@ function initExposure(): void {
     return ipcInvoke('kubernetes-client:listRoutes');
   });
 
+  contextBridge.exposeInMainWorld('kubernetesListServices', async (): Promise<V1Service[]> => {
+    return ipcInvoke('kubernetes-client:listServices');
+  });
+
   let onDataCallbacksKubernetesPodLogId = 0;
   const onDataCallbacksKubernetesPodLog = new Map<number, (name: string, data: string) => void>();
   contextBridge.exposeInMainWorld(
@@ -1528,6 +1535,10 @@ function initExposure(): void {
 
   contextBridge.exposeInMainWorld('kubernetesDeleteRoute', async (name: string): Promise<void> => {
     return ipcInvoke('kubernetes-client:deleteRoute', name);
+  });
+
+  contextBridge.exposeInMainWorld('kubernetesDeleteService', async (name: string): Promise<void> => {
+    return ipcInvoke('kubernetes-client:deleteService', name);
   });
 
   contextBridge.exposeInMainWorld(
